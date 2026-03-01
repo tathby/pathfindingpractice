@@ -316,19 +316,35 @@ def run_maps_demo() -> None:
     run_one("Example Map 2", EXAMPLE_MAP_2)
 
 
-def main() -> None:
-    print("Pathfinding Practice")
-    print("1) View BFS/DFS map demos")
-    print("2) Play monster chase game")
+def wait_for_menu() -> None:
     try:
-        choice = input("Choose 1 or 2: ").strip()
+        input("Hit any key to return to the main menu...")
     except EOFError:
-        choice = "1"
+        pass
 
-    if choice == "2":
-        play_monster_chase()
-    else:
-        run_maps_demo()
+
+def main() -> None:
+    while True:
+        print("Pathfinding Practice")
+        print("1) View BFS/DFS map demos")
+        print("2) Play monster chase game")
+        print("q) Quit")
+        try:
+            choice = input("Choose 1, 2, or q: ").strip().lower()
+        except EOFError:
+            choice = "q"
+
+        if choice == "2":
+            play_monster_chase()
+            wait_for_menu()
+        elif choice == "1":
+            run_maps_demo()
+            wait_for_menu()
+        elif choice == "q":
+            print("Goodbye.")
+            return
+        else:
+            print("Invalid choice.")
 
 
 if __name__ == "__main__":
