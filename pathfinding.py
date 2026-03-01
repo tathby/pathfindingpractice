@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 Pos = Tuple[int, int]  # (row, col)
 Grid = List[List[str]]
+MODE = "BFS"  # Monster chase mode: "BFS" or "DFS"
 
 
 EXAMPLE_MAP_1 = """
@@ -22,6 +23,16 @@ EXAMPLE_MAP_2 = """
 #...#..#.#G#
 #.###..#...#
 #......###.#
+############
+""".strip("\n")
+
+CHASE_MAP = """
+############
+#P..#.....G#
+#.#.#.###..#
+#.#...#....#
+#.###.#.##.#
+#.....#..M.#
 ############
 """.strip("\n")
 
@@ -165,6 +176,122 @@ def render(grid: Grid, path: Optional[List[Pos]] = None, visited: Optional[Set[P
     return "\n".join("".join(row) for row in canvas)
 
 
+def parse_chase_grid(text: str) -> Tuple[Grid, Pos, Pos, Pos]:
+    rows = [list(line) for line in text.splitlines() if line]
+    if not rows:
+        raise ValueError("chase map is empty")
+
+    width = len(rows[0])
+    if any(len(row) != width for row in rows):
+        raise ValueError("chase map must be rectangular")
+
+    player: Optional[Pos] = None
+    monster: Optional[Pos] = None
+    goal: Optional[Pos] = None
+
+    for r, row in enumerate(rows):
+        for c, ch in enumerate(row):
+            if ch == "P":
+                if player is not None:
+                    raise ValueError("chase map must contain exactly one P")
+                player = (r, c)
+                rows[r][c] = "."
+            elif ch == "M":
+                if monster is not None:
+                    raise ValueError("chase map must contain exactly one M")
+                monster = (r, c)
+                rows[r][c] = "."
+            elif ch == "G":
+                if goal is not None:
+                    raise ValueError("chase map must contain exactly one G")
+                goal = (r, c)
+                rows[r][c] = "."
+            elif ch not in {"#", "."}:
+                raise ValueError(f"invalid chase tile {ch!r} at {(r, c)}")
+
+    if player is None or monster is None or goal is None:
+        raise ValueError("chase map must contain one P, one M, and one G")
+
+    return rows, player, monster, goal
+
+
+def render_chase(grid: Grid, player: Pos, monster: Pos, goal: Pos) -> str:
+    canvas = [row[:] for row in grid]
+    pr, pc = player
+    mr, mc = monster
+    gr, gc = goal
+    canvas[gr][gc] = "G"
+    canvas[mr][mc] = "M"
+    canvas[pr][pc] = "P"
+    return "\n".join("".join(row) for row in canvas)
+
+
+def try_move(grid: Grid, pos: Pos, move: str) -> Pos:
+    dr_dc = {"w": (-1, 0), "a": (0, -1), "s": (1, 0), "d": (0, 1)}
+    if move not in dr_dc:
+        return pos
+    dr, dc = dr_dc[move]
+    nr, nc = pos[0] + dr, pos[1] + dc
+    if 0 <= nr < len(grid) and 0 <= nc < len(grid[0]) and grid[nr][nc] != "#":
+        return (nr, nc)
+    return pos
+
+
+def chase_path(grid: Grid, start: Pos, goal: Pos) -> Optional[List[Pos]]:
+    mode = MODE.upper()
+    if mode == "DFS":
+        path, _ = dfs_path(grid, start, goal)
+    else:
+        path, _ = bfs_path(grid, start, goal)
+    return path
+
+
+def play_monster_chase() -> None:
+    grid, player, monster, goal = parse_chase_grid(CHASE_MAP)
+
+    print("\nMonster Chase")
+    print(f"Mode: {MODE.upper()} (set MODE at top of file to BFS/DFS)")
+    print("Controls: w/a/s/d to move, q to quit")
+
+    while True:
+        print("\n" + render_chase(grid, player, monster, goal))
+
+        if monster == player:
+            print("You lose! The monster caught you.")
+            return
+        if player == goal:
+            print("You win! You reached the exit.")
+            return
+
+        cmd = input("Move (WASD, q quit): ").strip().lower()
+        if not cmd:
+            continue
+        if cmd == "q":
+            print("Game quit.")
+            return
+
+        player = try_move(grid, player, cmd[0])
+
+        if player == goal:
+            print("\n" + render_chase(grid, player, monster, goal))
+            print("You win! You reached the exit.")
+            return
+
+        if monster == player:
+            print("\n" + render_chase(grid, player, monster, goal))
+            print("You lose! The monster caught you.")
+            return
+
+        path = chase_path(grid, monster, player)
+        if path and len(path) > 1:
+            monster = path[1]
+
+        if monster == player:
+            print("\n" + render_chase(grid, player, monster, goal))
+            print("You lose! The monster caught you.")
+            return
+
+
 def run_one(label: str, grid_text: str) -> None:
     grid, start, goal = parse_grid(grid_text)
 
@@ -184,9 +311,24 @@ def run_one(label: str, grid_text: str) -> None:
     print(render(grid, path=path_dfs, visited=visited_dfs))
 
 
-def main() -> None:
+def run_maps_demo() -> None:
     run_one("Example Map 1", EXAMPLE_MAP_1)
     run_one("Example Map 2", EXAMPLE_MAP_2)
+
+
+def main() -> None:
+    print("Pathfinding Practice")
+    print("1) View BFS/DFS map demos")
+    print("2) Play monster chase game")
+    try:
+        choice = input("Choose 1 or 2: ").strip()
+    except EOFError:
+        choice = "1"
+
+    if choice == "2":
+        play_monster_chase()
+    else:
+        run_maps_demo()
 
 
 if __name__ == "__main__":
